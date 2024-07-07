@@ -50,8 +50,7 @@ void run_server() {
                     continue;
                 }
                 string line;
-                content += "\n\n=======================================================================\n\n";
-                content += entry.path().string();
+                content += "\n\n==============\""+content += entry.path().string()+"\"==============\n\n";
                 content += "\n";
                 while (getline(ifs, line)) {
                     content += line + "\n";
@@ -88,44 +87,10 @@ void run_server() {
     svr.listen("0.0.0.0", 8080);
 }
 
-void run_client() {
-    Client cli("localhost", 8080);
-
-    string upload_dir = "./uploads";
-    string download_dir = "./downloads";
-
-    if (!filesystem::exists(download_dir)) {
-        filesystem::create_directory(download_dir);
-    }
-
-    for (const auto &entry : filesystem::directory_iterator(upload_dir)) {
-        if (entry.is_regular_file()) {
-            string filename = entry.path().filename().string();
-            auto res = cli.Get(("/download?filename=" + filename).c_str());
-
-            if (res && res->status == 200) {
-                ofstream outfile(download_dir + "/" + filename, ios::binary);
-                outfile.write(res->body.data(), res->body.size());
-                cout << "Downloaded file: " << filename << endl;
-            } else {
-                cerr << "Failed to download file: " << filename << endl;
-                if (res) {
-                    cerr << "Status code: " << res->status << endl;
-                    cerr << "Response body: " << res->body << endl;
-                } else {
-                    cerr << "No response from server" << endl;
-                }
-            }
-        }
-    }
-}
-
 int main() {
     thread server_thread(run_server);
 
     this_thread::sleep_for(chrono::seconds(1));
-
-    run_client();
 
     server_thread.join();
     return 0;
