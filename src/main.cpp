@@ -8,10 +8,19 @@
 using namespace httplib;
 using namespace std;
 
+struct QueryResult{
+	std::vector<string> result;
+} QR1;
+
+// Callback function is called for each row
+// data = database, argc = no. of columns in a row,
+// argv = array of strings where each string is the value of a column in the row
+// azcolName = array of strings where each string is the name of the column
 static int callback(void* data, int argc, char **argv, char** azcolName){
 	int i;
 	for(i=0; i<argc; i++){
 		std::cout << azcolName[i] << " = " << argv[i] << std::endl;
+		QR1.result.push_back(argv[i]);
 	}
 	std::cout << std::endl;
 	return 0;
@@ -107,7 +116,7 @@ int deleteDatabase(string username, string email, string password, string file)
 	return 0;
 }
 
-int queryDatabase(string username, string email, string password, string file)
+int queryDatabase(string username, string file, Response &res)
 {
 	sqlite3 *db;
 	int exit = 0;
@@ -123,8 +132,48 @@ int queryDatabase(string username, string email, string password, string file)
 		std::cout << "Database opened successfully" << std::endl;
 	}
 
-	std::cout << "Table Contents: " << std::endl;
-	query(db);
+	stringstream ss4;
+	ss4 << "SELECT LID, USERNAME, EMAIL, PASSWORD FROM DATA WHERE USERNAME"
+	<< "="
+	<< "'" + username + "'";
+
+	QR1.result.clear();
+	
+	string sqlQuery = ss4.str();
+	exit = sqlite3_exec(db, sqlQuery.c_str(), callback, 0, &errMsg);
+	if(exit!=SQLITE_OK){
+		cerr << "Error Querying Data" << std::endl;
+		cerr << errMsg << std::endl;
+		sqlite3_free(errMsg);
+	}
+	else{
+		std::cout << "Data Queried successfully" << std::endl;
+		// std::cout << QR1.result[1] << std::endl;
+		stringstream content;
+		for(string &c : QR1.result){
+			content << c;
+			content << "\n";
+		}
+		string line;
+		bool userExists = false;
+		while(getline(content, line, '\n')){
+			if(strcmp(line.c_str(), username.c_str()) == 0){
+				userExists = true;
+				break;
+			}
+		}
+		if(userExists){
+			std::cout << "The user: " << username << " exists\n" << std::endl;
+			res.set_content(content.str(), "text/plain");
+		}
+		else{
+			std::cout << "The user: " << username << " doesn't exist\n" << std::endl;
+			res.set_content("\n\n\n", "text/plain");
+		}
+	}
+
+	// std::cout << "Table Contents: " << std::endl;
+	// query(db);
 	
 	sqlite3_close(db);
 	return 0;
@@ -146,29 +195,29 @@ auto form_html = R"(
     </html>
 )";
 
-void uploadFile(const std::string& url, const std::string& filePath) {
-    httplib::Client cli("0.0.0.0", 8080);
-    std::ifstream file(filePath, std::ios::binary);
+// void uploadFile(const std::string& url, const std::string& filePath) {
+//     httplib::Client cli("0.0.0.0", 8080);
+//     std::ifstream file(filePath, std::ios::binary);
     
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << filePath << std::endl;
-        return;
-    }
+//     if (!file.is_open()) {
+//         std::cerr << "Error: Could not open file " << filePath << std::endl;
+//         return;
+//     }
 
-    std::vector<char> fileContent((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    httplib::MultipartFormDataItems items = {
-        {"files", std::string(fileContent.begin(), fileContent.end()),
-		std::filesystem::path(filePath).filename().string(), "application/octet-stream"}
-    };
+//     std::vector<char> fileContent((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+//     httplib::MultipartFormDataItems items = {
+//         {"files", std::string(fileContent.begin(), fileContent.end()),
+// 		std::filesystem::path(filePath).filename().string(), "application/octet-stream"}
+//     };
 
-    auto res = cli.Post("/upload", items);
+//     auto res = cli.Post("/upload", items);
 
-    if (res && res->status == 200) {
-        std::cout << "File " << filePath << " uploaded successfully." << std::endl;
-    } else {
-        std::cerr << "Error: File upload failed for " << filePath << std::endl;
-    }
-}
+//     if (res && res->status == 200) {
+//         std::cout << "File " << filePath << " uploaded successfully." << std::endl;
+//     } else {
+//         std::cerr << "Error: File upload failed for " << filePath << std::endl;
+//     }
+// }
 
 void run_server() {
     Server svr;
@@ -229,47 +278,54 @@ void run_server() {
 			string_list.push_back(token);
 		}
         std::string filepath = upload_dir + "/" + "login.db";
-		queryDatabase(string_list[0],string_list[1],string_list[2], filepath);
+		queryDatabase(string_list[0], filepath, res);
     });
 
-	svr.Post("/upload", [&](const httplib::Request &req, httplib::Response &res) {
-		if(req.is_multipart_form_data()){
-			for(const auto &file : req.files){
+	// svr.Post("/upload", [&](const httplib::Request &req, httplib::Response &res) {
+	// 	if(req.is_multipart_form_data()){
+	// 		for(const auto &file : req.files){
 
-		std::cout << "Received a file upload request" << std::endl;
-		std::cout << "File name: " << file.second.filename << std::endl;
-		std::cout << "File size: " << file.second.content.size() << " bytes" << std::endl;
+	// 	std::cout << "Received a file upload request" << std::endl;
+	// 	std::cout << "File name: " << file.second.filename << std::endl;
+	// 	std::cout << "File size: " << file.second.content.size() << " bytes" << std::endl;
 
-        if (file.second.content.empty()) {
-            res.status = 400;
-            res.set_content("No file uploaded or file is empty", "text/plain");
-            return;
-        }
+    //     if (file.second.content.empty()) {
+    //         res.status = 400;
+    //         res.set_content("No file uploaded or file is empty", "text/plain");
+    //         return;
+    //     }
 
-        // Save the uploaded file
-        std::string file_path = upload_dir + "/" + file.second.filename;
-        std::ofstream ofs(file_path, std::ios::binary);
-        ofs.write(file.second.content.c_str(), file.second.content.size());
+    //     // Save the uploaded file
+    //     std::string file_path = upload_dir + "/" + file.second.filename;
+    //     std::ofstream ofs(file_path, std::ios::binary);
+    //     ofs.write(file.second.content.c_str(), file.second.content.size());
 		
-        if (ofs.good()) {
-            std::cout << "File uploaded successfully to " << file_path << std::endl;
-            res.set_content("File uploaded successfully: " + file_path, "text/plain");
-        } else {
-            std::cout << "File upload failed" << std::endl;
-            res.status = 404;
-            res.set_content("<html><body><h1>File upload failed</h1></body></html>", "text/html");
-        }
-			}
-    }
-	});
+    //     if (ofs.good()) {
+    //         std::cout << "File uploaded successfully to " << file_path << std::endl;
+    //         res.set_content("File uploaded successfully: " + file_path, "text/plain");
+    //     } else {
+    //         std::cout << "File upload failed" << std::endl;
+    //         res.status = 404;
+    //         res.set_content("<html><body><h1>File upload failed</h1></body></html>", "text/html");
+    //     }
+	// 		}
+    // }
+	// });
 
     std::cout << "Server is listening on http://localhost:8080\n";
     svr.listen("0.0.0.0", 8080);
+
+	string stopString;
+	std::cin >> stopString;
+	if(strcmp(stopString.c_str(), "stop") == 0){
+		svr.stop();
+	}
 }
 
 int main(int argc, char* argv[]) {
 	thread server_thread(run_server);
 
     server_thread.join();
+	
     return 0;
 }
