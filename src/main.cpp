@@ -1,183 +1,6 @@
-#include <httplib.h>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <sqlite3.h>
-#include <thread>
+#include "data_man.h"
 
-using namespace httplib;
-using namespace std;
-
-struct QueryResult{
-	std::vector<string> result;
-} QR1;
-
-// Callback function is called for each row
-// data = database, argc = no. of columns in a row,
-// argv = array of strings where each string is the value of a column in the row
-// azcolName = array of strings where each string is the name of the column
-static int callback(void* data, int argc, char **argv, char** azcolName){
-	int i;
-	for(i=0; i<argc; i++){
-		std::cout << azcolName[i] << " = " << argv[i] << std::endl;
-		QR1.result.push_back(argv[i]);
-	}
-	std::cout << std::endl;
-	return 0;
-}
-
-void query(sqlite3 *db){
-	char *errMsg;
-	string sqlQuery = "SELECT * FROM DATA";
-	if(sqlite3_exec(db, sqlQuery.c_str(), callback, 0, &errMsg) != SQLITE_OK){
-		cerr << "SQL Error: " << errMsg << std::endl;
-		sqlite3_free(errMsg);
-	}
-}
-
-int insertDatabase(string username, string email, string password, string file)
-{
-	sqlite3 *db;
-	int exit = 0;
-	char *errMsg;
-
-	exit = sqlite3_open(file.c_str(), &db);
-	std::cout << file.c_str() << std::endl;
-	if(exit){
-		cerr << "Failed to open database: " << sqlite3_errmsg(db) << std::endl;
-		return 1;
-	}
-	else{
-		std::cout << "Database opened successfully" << std::endl;
-	}
-	stringstream ss2;
-	int LID = 1;
-	ss2 << "INSERT INTO DATA(USERNAME,EMAIL,PASSWORD) VALUES"
-	<< "("
-	<< "'" << username << "',"
-	<< "'" << email << "',"
-	<< "'" << password << "'"
-	<< ")";
-
-	string sqlInsert = ss2.str();
-	exit = sqlite3_exec(db, sqlInsert.c_str(), NULL, 0, &errMsg);
-	if(exit!=SQLITE_OK){
-		cerr << "Error inserting data" << std::endl;
-		cerr << errMsg << std::endl;
-		sqlite3_free(errMsg);
-	}
-	else{
-		std::cout << "Data inserted successfully" << std::endl;
-	}
-
-	std::cout << "Table Contents: " << std::endl;
-	query(db);
-
-	sqlite3_close(db);
-	return 0;
-}
-
-int deleteDatabase(string username, string email, string password, string file)
-{
-	sqlite3 *db;
-	int exit = 0;
-	char *errMsg;
-
-	exit = sqlite3_open(file.c_str(), &db);
-	std::cout << file.c_str() << std::endl;
-	if(exit){
-		cerr << "Failed to open database: " << sqlite3_errmsg(db) << std::endl;
-		return 1;
-	}
-	else{
-		std::cout << "Database opened successfully" << std::endl;
-	}
-
-	stringstream ss3;
-	ss3 << "DELETE FROM DATA WHERE USERNAME"
-	<< "="
-	<< "'" << username << "'";
-
-	string sqlDelete = ss3.str();
-	exit = sqlite3_exec(db, sqlDelete.c_str(), NULL, 0, &errMsg);
-	if(exit!=SQLITE_OK){
-		cerr << "Error deleting data" << std::endl;
-		cerr << errMsg << std::endl;
-		sqlite3_free(errMsg);
-	}
-	else{
-		std::cout << "Data deleted successfully" << std::endl;
-	}
-
-	std::cout << "Table Contents: " << std::endl;
-	query(db);
-	
-	sqlite3_close(db);
-	return 0;
-}
-
-int queryDatabase(string username, string file, Response &res)
-{
-	sqlite3 *db;
-	int exit = 0;
-	char *errMsg;
-
-	exit = sqlite3_open(file.c_str(), &db);
-	std::cout << file.c_str() << std::endl;
-	if(exit){
-		cerr << "Failed to open database: " << sqlite3_errmsg(db) << std::endl;
-		return 1;
-	}
-	else{
-		std::cout << "Database opened successfully" << std::endl;
-	}
-
-	stringstream ss4;
-	ss4 << "SELECT LID, USERNAME, EMAIL, PASSWORD FROM DATA WHERE USERNAME"
-	<< "="
-	<< "'" + username + "'";
-
-	QR1.result.clear();
-	
-	string sqlQuery = ss4.str();
-	exit = sqlite3_exec(db, sqlQuery.c_str(), callback, 0, &errMsg);
-	if(exit!=SQLITE_OK){
-		cerr << "Error Querying Data" << std::endl;
-		cerr << errMsg << std::endl;
-		sqlite3_free(errMsg);
-	}
-	else{
-		std::cout << "Data Queried successfully" << std::endl;
-		// std::cout << QR1.result[1] << std::endl;
-		stringstream content;
-		for(string &c : QR1.result){
-			content << c;
-			content << "\n";
-		}
-		string line;
-		bool userExists = false;
-		while(getline(content, line, '\n')){
-			if(strcmp(line.c_str(), username.c_str()) == 0){
-				userExists = true;
-				break;
-			}
-		}
-		if(userExists){
-			std::cout << "The user: " << username << " exists\n" << std::endl;
-			res.set_content(content.str(), "text/plain");
-		}
-		else{
-			std::cout << "The user: " << username << " doesn't exist\n" << std::endl;
-			res.set_content("\n\n\n", "text/plain");
-		}
-	}
-
-	// std::cout << "Table Contents: " << std::endl;
-	// query(db);
-	
-	sqlite3_close(db);
-	return 0;
-}
+QueryResult QR1;
 
 auto form_html = R"(
     <!DOCTYPE html>
@@ -219,6 +42,7 @@ auto form_html = R"(
 //     }
 // }
 
+
 void run_server() {
     Server svr;
     string upload_dir = "./uploads";
@@ -245,40 +69,37 @@ void run_server() {
         res.set_content(content, "text/plain");
     });
 
-    svr.Post("/login/insert", [upload_dir](const Request &req, Response &res) {
+	svr.Post("/login/insert", [upload_dir](const Request &req, Response &res) {
 		string cli_req = req.body;
-		std::vector<string> string_list;
-		std::string token;
-		istringstream tokenStream(cli_req);
-		while(getline(tokenStream, token, '\n')){
-			string_list.push_back(token);
-		}
-        std::string filepath = upload_dir + "/" + "login.db";
-		insertDatabase(string_list[0],string_list[1],string_list[2], filepath);
+
+        std::string filepath = upload_dir + "/" + "leaguedata.db";
+		insertDatabase(cli_req, filepath);
     });
 
 	svr.Post("/login/delete", [upload_dir](const Request &req, Response &res) {
+
 		string cli_req = req.body;
-		std::vector<string> string_list;
-		std::string token;
-		istringstream tokenStream(cli_req);
-		while(getline(tokenStream, token, '\n')){
-			string_list.push_back(token);
-		}
+
         std::string filepath = upload_dir + "/" + "login.db";
-		deleteDatabase(string_list[0],string_list[1],string_list[2], filepath);
+		deleteDatabase(cli_req, filepath);
     });
 
 	svr.Post("/login/query", [upload_dir](const Request &req, Response &res) {
 		string cli_req = req.body;
-		std::vector<string> string_list;
-		std::string token;
-		istringstream tokenStream(cli_req);
-		while(getline(tokenStream, token, '\n')){
-			string_list.push_back(token);
-		}
+
         std::string filepath = upload_dir + "/" + "login.db";
-		queryDatabase(string_list[0], filepath, res);
+		queryDatabase(cli_req, filepath, res);
+    });
+
+	svr.Post("/team/insert", [upload_dir](const Request &req, Response &res) {
+		string cli_req = req.body;
+		// std::vector<string> string_list;
+		// std::string token;
+		// while(getline(tokenStream, token, '\n')){
+		// 	string_list.push_back(token);
+		// }
+        std::string filepath = upload_dir + "/" + "leaguedata.db";
+		insertDatabaseTeam(cli_req, filepath);
     });
 
 	// svr.Post("/upload", [&](const httplib::Request &req, httplib::Response &res) {
