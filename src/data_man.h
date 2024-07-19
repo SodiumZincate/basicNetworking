@@ -1,11 +1,12 @@
 #pragma once
 
-#include <httplib.h>
+#include "httplib.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <sqlite3.h>
-#include <thread>
+#include "sqlite3.h"
+#include <string>
+#include <string.h>
 
 using namespace httplib;
 using namespace std;

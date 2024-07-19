@@ -1,4 +1,5 @@
 #include "data_man.h"
+#include "data_man.cpp"
 
 QueryResult QR1;
 
@@ -59,7 +60,7 @@ void run_server() {
         string content;
         for (const auto &entry : filesystem::directory_iterator(upload_dir)) {
             if (entry.is_regular_file()) {
-				content += entry.path().filename();
+                content += entry.path().filename().string();
 				content += "\n";
             } else {
                 std::cout << "Not a regular file" << std::endl;
