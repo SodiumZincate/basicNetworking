@@ -77,7 +77,6 @@ void run_server() {
     });
 
 	svr.Post("/login/delete", [upload_dir](const Request &req, Response &res) {
-
 		string cli_req = req.body;
 
         std::string filepath = upload_dir + "/" + "login.db";

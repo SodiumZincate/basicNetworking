@@ -44,7 +44,6 @@ void insertDatabaseTeam(string cli_req, string file){
 	else{
 		std::cout << "Database opened successfully" << std::endl;
 	}
-	stringstream ss2;
 
 	string uid = string_list[0];
 	string lid = string_list[1];
@@ -58,7 +57,8 @@ void insertDatabaseTeam(string cli_req, string file){
 	string gf = string_list[9];
 	string point = string_list[10];
 
-	ss2 << "INSERT INTO TEAM(UID,LID,POSITION,TNAME,WIN,LOSS,DRAW,GA,GD,GF,POINTS) VALUES"
+	stringstream ss;
+	ss << "INSERT INTO TEAM(UID,LID,POSITION,TNAME,WIN,LOSS,DRAW,GA,GD,GF,POINTS) VALUES"
 	<< "("
 	<< "'" << uid << "',"
 	<< "'" << lid << "',"
@@ -73,7 +73,7 @@ void insertDatabaseTeam(string cli_req, string file){
 	<< "'" << point << "'"
 	<< ")";
 
-	string sqlInsert = ss2.str();
+	string sqlInsert = ss.str();
 	exit = sqlite3_exec(db, sqlInsert.c_str(), NULL, 0, &errMsg);
 	if(exit!=SQLITE_OK){
 		cerr << "Error inserting data" << std::endl;
@@ -116,16 +116,17 @@ void insertDatabase(string cli_req, string file)
 	else{
 		std::cout << "Database opened successfully" << std::endl;
 	}
-	stringstream ss2;
+
+	stringstream ss;
 	int LID = 1;
-	ss2 << "INSERT INTO DATA(USERNAME,EMAIL,PASSWORD) VALUES"
+	ss << "INSERT INTO DATA(USERNAME,EMAIL,PASSWORD) VALUES"
 	<< "("
 	<< "'" << username << "',"
 	<< "'" << email << "',"
 	<< "'" << password << "'"
 	<< ")";
 
-	string sqlInsert = ss2.str();
+	string sqlInsert = ss.str();
 	exit = sqlite3_exec(db, sqlInsert.c_str(), NULL, 0, &errMsg);
 	if(exit!=SQLITE_OK){
 		cerr << "Error inserting data" << std::endl;
@@ -170,12 +171,12 @@ void deleteDatabase(string cli_req, string file)
 		std::cout << "Database opened successfully" << std::endl;
 	}
 
-	stringstream ss3;
-	ss3 << "DELETE FROM DATA WHERE USERNAME"
+	stringstream ss;
+	ss << "DELETE FROM DATA WHERE USERNAME"
 	<< "="
 	<< "'" << username << "'";
 
-	string sqlDelete = ss3.str();
+	string sqlDelete = ss.str();
 	exit = sqlite3_exec(db, sqlDelete.c_str(), NULL, 0, &errMsg);
 	if(exit!=SQLITE_OK){
 		cerr << "Error deleting data" << std::endl;
@@ -218,14 +219,14 @@ void queryDatabase(string cli_req, string file, Response &res)
 		std::cout << "Database opened successfully" << std::endl;
 	}
 
-	stringstream ss4;
-	ss4 << "SELECT LID, USERNAME, EMAIL, PASSWORD FROM DATA WHERE USERNAME"
+	stringstream ss;
+	ss << "SELECT LID, USERNAME, EMAIL, PASSWORD FROM DATA WHERE USERNAME"
 	<< "="
 	<< "'" + username + "'";
 
 	QR1.result.clear();
 	
-	string sqlQuery = ss4.str();
+	string sqlQuery = ss.str();
 	exit = sqlite3_exec(db, sqlQuery.c_str(), callback, 0, &errMsg);
 	if(exit!=SQLITE_OK){
 		cerr << "Error Querying Data" << std::endl;
@@ -262,5 +263,4 @@ void queryDatabase(string cli_req, string file, Response &res)
 	// query(db);
 	
 	sqlite3_close(db);
-	
 }
